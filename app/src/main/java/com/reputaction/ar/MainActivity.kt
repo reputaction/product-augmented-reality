@@ -6,6 +6,7 @@ import android.support.v7.app.AppCompatActivity
 import android.util.Log
 import com.vuforia.ObjectTracker
 import com.vuforia.State
+import com.vuforia.TargetFinder
 import com.vuforia.TrackerManager
 
 class MainActivity : AppCompatActivity(), VuforiaSessionControl {
@@ -40,7 +41,24 @@ class MainActivity : AppCompatActivity(), VuforiaSessionControl {
     }
 
     override fun doLoadTrackersData(): Boolean {
-        TODO("not implemented") //To change body of created functions use File | Settings | File Templates.
+        // get object tracker
+        val tManager = TrackerManager.getInstance()
+        val objectTracker = tManager.getTracker(ObjectTracker.getClassType()) as ObjectTracker
+
+        // init target finder
+        val targetFinder = objectTracker.targetFinder
+
+        // start init
+        if (targetFinder.startInit(Constants.kAccessKey, Constants.kSecretKey)) {
+            targetFinder.waitUntilInitFinished()
+        }
+
+        val resultCode = targetFinder.initState
+        if (resultCode != TargetFinder.INIT_SUCCESS) {
+            Log.e("logtag", "error init target")
+        }
+
+        return true
     }
 
     override fun doStartTrackers(): Boolean {

@@ -23,7 +23,7 @@ public class VuforiaAppSession constructor(val mSessionControl: VuforiaSessionCo
     // The async tasks to initialize the Vuforia SDK:
     private var mInitVuforiaTask: InitVuforiaTask? = null
     private var mInitTrackerTask: InitTrackerTask? = null
-    //private var mLoadTrackerTask: LoadTrackerTask? = null
+    private var mLoadTrackerTask: LoadTrackerTask? = null
     //private var mStartVuforiaTask: StartVuforiaTask? = null
     //private var mResumeVuforiaTask: ResumeVuforiaTask? = null
 
@@ -130,8 +130,31 @@ public class VuforiaAppSession constructor(val mSessionControl: VuforiaSessionCo
         override fun onPostExecute(result: Boolean) {
             if (result) {
                 Log.d("debugtag", "tracker init ok")
+                mLoadTrackerTask = LoadTrackerTask()
+                mLoadTrackerTask?.execute()
             } else {
                 Log.d("debugtag", "tracker init error")
+            }
+        }
+    }
+
+    private inner class LoadTrackerTask : AsyncTask<Void, Void, Boolean>() {
+
+        override fun doInBackground(vararg p0: Void?): Boolean {
+            synchronized(mLifecycleLock)
+            {
+                synchronized(mLifecycleLock)
+                {
+                    return mSessionControl.doLoadTrackersData()
+                }
+            }
+        }
+
+        override fun onPostExecute(result: Boolean) {
+            if (result) {
+                Log.d("debugtag", "load target init ok")
+            } else {
+                Log.d("debugtag", "load target init error")
             }
         }
 
