@@ -13,7 +13,7 @@ import com.vuforia.Vuforia
  * Vuforia app session
  */
 
-public class VuforiaAppSession constructor(mSessionControl: VuforiaSessionControl) : Vuforia.UpdateCallbackInterface {
+public class VuforiaAppSession constructor(val mSessionControl: VuforiaSessionControl) : Vuforia.UpdateCallbackInterface {
 
     private lateinit var mActivity: Activity
 
@@ -22,8 +22,8 @@ public class VuforiaAppSession constructor(mSessionControl: VuforiaSessionContro
 
     // The async tasks to initialize the Vuforia SDK:
     private var mInitVuforiaTask: InitVuforiaTask? = null
-    //private var mInitTrackerTask: InitTrackerTask? = null
-    //private var mLoadTrackerTask: LoadTrackerTask? = null
+    private var mInitTrackerTask: InitTrackerTask? = null
+    private var mLoadTrackerTask: LoadTrackerTask? = null
     //private var mStartVuforiaTask: StartVuforiaTask? = null
     //private var mResumeVuforiaTask: ResumeVuforiaTask? = null
 
@@ -84,17 +84,20 @@ public class VuforiaAppSession constructor(mSessionControl: VuforiaSessionContro
 
         override fun doInBackground(vararg p0: Void?): Boolean {
 
-            Vuforia.setInitParameters(mActivity, mVuforiaFlags, Constants.vuforiaLicenseKey)
-            do {
-                // Vuforia.init() blocks until an initialization step is
-                // complete, then it proceeds to the next step
-                mProgressValue = Vuforia.init()
-                Log.d("debugtag", "" + mProgressValue)
-                publishProgress(mProgressValue)
-            } while (!isCancelled && mProgressValue >= 0 && mProgressValue < 100)
+            // Prevent the onDestroy() method to overlap with initialization
+            synchronized(mLifecycleLock) {
 
-            return (mProgressValue > 0)
+                Vuforia.setInitParameters(mActivity, mVuforiaFlags, Constants.vuforiaLicenseKey)
+                do {
+                    // Vuforia.init() blocks until an initialization step is
+                    // complete, then it proceeds to the next step
+                    mProgressValue = Vuforia.init()
+                    Log.d("debugtag", "" + mProgressValue)
+                    publishProgress(mProgressValue)
+                } while (!isCancelled && mProgressValue >= 0 && mProgressValue < 100)
 
+                return (mProgressValue > 0)
+            }
         }
 
         protected fun onProgressUpdate(vararg values: Int) {
@@ -105,10 +108,54 @@ public class VuforiaAppSession constructor(mSessionControl: VuforiaSessionContro
         override fun onPostExecute(result: Boolean) {
             if (result) {
                 Log.d("debugtag", "Vuforia init ok")
+                mInitTrackerTask = InitTrackerTask()
+                mInitTrackerTask?.execute()
             } else {
                 Log.d("debugtag", "Vuforia init error")
             }
 
+        }
+    }
+
+    private inner class InitTrackerTask : AsyncTask<Void, Int, Boolean>() {
+
+        override fun doInBackground(vararg p0: Void?): Boolean {
+            synchronized(mLifecycleLock)
+            {
+                // load dataset
+                return mSessionControl.doInitTrackers()
+            }
+        }
+
+        override fun onPostExecute(result: Boolean) {
+            if (result) {
+                Log.d("debugtag", "tracker init ok")
+                mLoadTrackerTask = LoadTrackerTask()
+                mLoadTrackerTask?.execute()
+            } else {
+                Log.d("debugtag", "tracker init error")
+            }
+        }
+    }
+
+    private inner class LoadTrackerTask : AsyncTask<Void, Void, Boolean>() {
+
+        override fun doInBackground(vararg p0: Void?): Boolean {
+            synchronized(mLifecycleLock)
+            {
+                synchronized(mLifecycleLock)
+                {
+                    return mSessionControl.doLoadTrackersData()
+                }
+            }
+        }
+
+        override fun onPostExecute(result: Boolean) {
+            if (result) {
+                Log.d("debugtag", "load target init ok")
+            } else {
+                Log.d("debugtag", "load target init error")
+            }
         }
 
     }
