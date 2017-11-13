@@ -3,7 +3,10 @@ package com.reputaction.ar
 import android.content.pm.ActivityInfo
 import android.os.Bundle
 import android.support.v7.app.AppCompatActivity
+import android.util.Log
+import com.vuforia.ObjectTracker
 import com.vuforia.State
+import com.vuforia.TrackerManager
 
 class MainActivity : AppCompatActivity(), VuforiaSessionControl {
 
@@ -21,7 +24,19 @@ class MainActivity : AppCompatActivity(), VuforiaSessionControl {
     }
 
     override fun doInitTrackers(): Boolean {
-        TODO("not implemented") //To change body of created functions use File | Settings | File Templates.
+        val tManager = TrackerManager.getInstance()
+        var result = true   // indicate if init correctly
+
+        val tracker = tManager.initTracker(ObjectTracker.getClassType())
+        if (tracker == null) {
+            Log.e(
+                    "logtag",
+                    "Tracker not initialized. Tracker already initialized or the camera is already started")
+            result = false
+        } else {
+            Log.i("logtag", "tracker init correct")
+        }
+        return result
     }
 
     override fun doLoadTrackersData(): Boolean {
