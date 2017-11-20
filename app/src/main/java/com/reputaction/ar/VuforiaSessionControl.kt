@@ -36,7 +36,7 @@ interface VuforiaSessionControl {
     // This callback is called after the Vuforia initialization is complete,
     // the trackers are initialized, their data loaded and
     // tracking is ready to start
-    fun onInitARDone(e: VuforiaAppSession)
+    fun onInitARDone()
 
 
     // This callback is called every cycle

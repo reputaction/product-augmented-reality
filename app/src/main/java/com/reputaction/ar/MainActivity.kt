@@ -4,14 +4,24 @@ import android.content.pm.ActivityInfo
 import android.os.Bundle
 import android.support.v7.app.AppCompatActivity
 import android.util.Log
-import com.vuforia.ObjectTracker
-import com.vuforia.State
-import com.vuforia.TargetFinder
-import com.vuforia.TrackerManager
+import com.reputaction.ar.util.SimpleGLView
+import com.reputaction.ar.util.Texture
+import com.vuforia.*
+import java.util.*
 
 class MainActivity : AppCompatActivity(), VuforiaSessionControl {
 
     private lateinit var vuforiaAppSession: VuforiaAppSession
+
+    var mFinderStarted: Boolean = false
+
+    // gl view
+    lateinit var mGlView: SimpleGLView
+
+    private lateinit var mRenderer: ReputactionAppRenderer
+
+    // textures for rendering
+    private lateinit var mTextures: Vector<Texture>
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -20,10 +30,19 @@ class MainActivity : AppCompatActivity(), VuforiaSessionControl {
 
         vuforiaAppSession.initAR(this, ActivityInfo.SCREEN_ORIENTATION_PORTRAIT)
 
+        //mTextures = Vector()
+
 
         setContentView(R.layout.activity_main)
     }
 
+    override fun onResume() {
+        super.onResume()
+
+        vuforiaAppSession.onResume()
+    }
+
+    /* VuforiaSessionControl overrides */
     override fun doInitTrackers(): Boolean {
         val tManager = TrackerManager.getInstance()
         var result = true   // indicate if init correctly
@@ -62,7 +81,17 @@ class MainActivity : AppCompatActivity(), VuforiaSessionControl {
     }
 
     override fun doStartTrackers(): Boolean {
-        TODO("not implemented") //To change body of created functions use File | Settings | File Templates.
+        val tManager = TrackerManager.getInstance()
+        val objectTracker = tManager.getTracker(ObjectTracker.getClassType()) as ObjectTracker
+        objectTracker.start()
+
+        // start cloud recognition if we are in scanning mode
+        val targetFinder = objectTracker.targetFinder
+        targetFinder.startRecognition()
+
+        mFinderStarted = true
+
+        return true
     }
 
     override fun doStopTrackers(): Boolean {
@@ -77,8 +106,8 @@ class MainActivity : AppCompatActivity(), VuforiaSessionControl {
         TODO("not implemented") //To change body of created functions use File | Settings | File Templates.
     }
 
-    override fun onInitARDone(e: VuforiaAppSession) {
-        TODO("not implemented") //To change body of created functions use File | Settings | File Templates.
+    override fun onInitARDone() {
+        initApplicationAR()
     }
 
     override fun onVuforiaUpdate(state: State) {
@@ -91,5 +120,20 @@ class MainActivity : AppCompatActivity(), VuforiaSessionControl {
 
     override fun onVuforiaStarted() {
         TODO("not implemented") //To change body of created functions use File | Settings | File Templates.
+    }
+
+    private fun initApplicationAR() {
+        // create opengl es view
+        val depthSize = 16
+        val stencilSize = 0
+        val translucent = Vuforia.requiresAlpha()
+
+        // init gl view
+        mGlView = SimpleGLView(this)
+        mGlView.init(translucent, depthSize, stencilSize)
+
+        // setup renderer for gl view
+        mRenderer = ReputactionAppRenderer(vuforiaAppSession, this)
+        mGlView.setRenderer(mRenderer)
     }
 }
