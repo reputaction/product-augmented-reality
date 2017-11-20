@@ -5,6 +5,7 @@ import android.os.AsyncTask
 import android.util.Log
 import android.view.OrientationEventListener
 import android.view.WindowManager
+import com.vuforia.CameraDevice
 import com.vuforia.INIT_FLAGS
 import com.vuforia.State
 import com.vuforia.Vuforia
@@ -13,19 +14,26 @@ import com.vuforia.Vuforia
  * Vuforia app session
  */
 
-public class VuforiaAppSession constructor(val mSessionControl: VuforiaSessionControl) : Vuforia.UpdateCallbackInterface {
+class VuforiaAppSession constructor(val mSessionControl: VuforiaSessionControl) : Vuforia.UpdateCallbackInterface {
 
     private lateinit var mActivity: Activity
 
     // Vuforia initialization flags
     private var mVuforiaFlags = 0
 
+    // flag if vuforia is started
+    private var mStarted = false
+    private var mCameraRunning = false
+
+    // camera config
+    private var mCamera = CameraDevice.CAMERA_DIRECTION.CAMERA_DIRECTION_DEFAULT
+
     // The async tasks to initialize the Vuforia SDK:
     private var mInitVuforiaTask: InitVuforiaTask? = null
     private var mInitTrackerTask: InitTrackerTask? = null
     private var mLoadTrackerTask: LoadTrackerTask? = null
-    //private var mStartVuforiaTask: StartVuforiaTask? = null
-    //private var mResumeVuforiaTask: ResumeVuforiaTask? = null
+    private var mStartVuforiaTask: StartVuforiaTask? = null
+    private var mResumeVuforiaTask: ResumeVuforiaTask? = null
 
     // An object used for synchronizing Vuforia initialization, dataset loading
     // and the Android onDestroy() life cycle event. If the application is
@@ -72,11 +80,62 @@ public class VuforiaAppSession constructor(val mSessionControl: VuforiaSessionCo
         } catch (e: Exception) {
             Log.e("errortag", "vuforia init error")
         }
+    }
 
+    fun startAR(camera: Int) {
+        try {
+            mStartVuforiaTask = StartVuforiaTask()
+            mStartVuforiaTask?.execute()
+        } catch (e: Exception) {
+            Log.e("errortag", "start ar error")
+        }
+    }
+
+    fun resumeAR() {
+        try {
+            mResumeVuforiaTask = ResumeVuforiaTask()
+            mResumeVuforiaTask?.execute()
+        } catch (e: Exception) {
+            Log.e("errortag", "res ar error")
+        }
+    }
+
+    // start camera
+    fun startCameraAndTrackers() {
+        if (mCameraRunning) {
+            Log.e("errortag", "error: camera already running")
+            return
+        }
+
+        if (!CameraDevice.getInstance().init(mCamera)) {
+            Log.e("errortag", "error: open camera")
+            return
+        }
+
+        if (!CameraDevice.getInstance().selectVideoMode(CameraDevice.MODE.MODE_DEFAULT)) {
+            Log.e("errortag", "error: video mode")
+            return
+        }
+
+        if (!CameraDevice.getInstance().start()) {
+            Log.e("errortag", "error: start camera")
+            return
+        }
+
+        mSessionControl.doStartTrackers()
+
+        mCameraRunning = true
     }
 
     override fun Vuforia_onUpdate(p0: State?) {
         TODO("not implemented") //To change body of created functions use File | Settings | File Templates.
+    }
+
+    // Methods to be called to handle lifecycle
+    fun onResume() {
+        if (mResumeVuforiaTask == null) {
+            resumeAR()
+        }
     }
 
     private inner class InitVuforiaTask : AsyncTask<Void, Int, Boolean>() {
@@ -153,9 +212,57 @@ public class VuforiaAppSession constructor(val mSessionControl: VuforiaSessionCo
         override fun onPostExecute(result: Boolean) {
             if (result) {
                 Log.d("debugtag", "load target init ok")
+
+                // Hint to the virtual machine that it would be a good time to
+                // run the garbage collector
+                System.gc()
+
+                Vuforia.registerCallback(this@VuforiaAppSession)
+
+                mStarted = true
             } else {
                 Log.d("debugtag", "load target init error")
             }
+
+            // Done loading the tracker, update application status, send the
+            // exception to check errors
+            mSessionControl.onInitARDone()
+        }
+    }
+
+    private inner class ResumeVuforiaTask : AsyncTask<Void, Void, Void>() {
+        override fun doInBackground(vararg p0: Void?): Void? {
+            synchronized(mLifecycleLock) {
+                Vuforia.onResume()
+            }
+            return null
+        }
+
+        override fun onPostExecute(result: Void?) {
+
+            Log.d("debugtag", "" + mStarted)
+            Log.d("debugtag", "" + mCameraRunning)
+
+
+            //start the camera only if the Vuforia SDK has already been initialized
+            if (mStarted && !mCameraRunning) {
+                startAR(mCamera)
+            }
+        }
+    }
+
+    private inner class StartVuforiaTask : AsyncTask<Void, Void, Boolean>() {
+        override fun doInBackground(vararg p0: Void?): Boolean {
+            synchronized(mLifecycleLock)
+            {
+                startCameraAndTrackers()
+            }
+
+            return true
+        }
+
+        override fun onPostExecute(result: Boolean?) {
+            mSessionControl.onVuforiaStarted()
         }
 
     }
