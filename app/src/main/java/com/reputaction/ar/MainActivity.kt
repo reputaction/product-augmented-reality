@@ -4,6 +4,7 @@ import android.content.pm.ActivityInfo
 import android.os.Bundle
 import android.support.v7.app.AppCompatActivity
 import android.util.Log
+import android.view.ViewGroup.LayoutParams
 import com.reputaction.ar.util.SimpleGLView
 import com.reputaction.ar.util.Texture
 import com.vuforia.*
@@ -33,7 +34,7 @@ class MainActivity : AppCompatActivity(), VuforiaSessionControl {
         //mTextures = Vector()
 
 
-        setContentView(R.layout.activity_main)
+        //setContentView(R.layout.activity_main)
     }
 
     override fun onResume() {
@@ -108,10 +109,34 @@ class MainActivity : AppCompatActivity(), VuforiaSessionControl {
 
     override fun onInitARDone() {
         initApplicationAR()
+
+        mRenderer.setActive(true)
+
+        // Now add the GL surface view.
+        // OpenGL ES surface view gets added BEFORE the camera is started and video background is configured.
+        addContentView(mGlView, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT))
+
+        vuforiaAppSession.startAR(CameraDevice.CAMERA_DIRECTION.CAMERA_DIRECTION_DEFAULT)
     }
 
     override fun onVuforiaUpdate(state: State) {
-        TODO("not implemented") //To change body of created functions use File | Settings | File Templates.
+        val trackerManager = TrackerManager.getInstance()
+        val objectTracker = trackerManager.getTracker(ObjectTracker.getClassType()) as ObjectTracker
+        val finder = objectTracker.targetFinder
+
+        val statusCode = finder.updateSearchResults()
+        if (statusCode == TargetFinder.UPDATE_RESULTS_AVAILABLE) {
+            // process
+            if (finder.resultCount > 0) {
+                val result = finder.getResult(0)
+
+                // check if suitable for track
+                if (result.trackingRating > 0) {
+                    val trackable = finder.enableTracking(result)
+
+                }
+            }
+        }
     }
 
     override fun onVuforiaResumed() {
@@ -119,7 +144,12 @@ class MainActivity : AppCompatActivity(), VuforiaSessionControl {
     }
 
     override fun onVuforiaStarted() {
-        TODO("not implemented") //To change body of created functions use File | Settings | File Templates.
+        // set camera focus
+        if (!CameraDevice.getInstance().setFocusMode(CameraDevice.FOCUS_MODE.FOCUS_MODE_CONTINUOUSAUTO)) {
+            if (!CameraDevice.getInstance().setFocusMode(CameraDevice.FOCUS_MODE.FOCUS_MODE_TRIGGERAUTO)) {
+                CameraDevice.getInstance().setFocusMode(CameraDevice.FOCUS_MODE.FOCUS_MODE_NORMAL)
+            }
+        }
     }
 
     private fun initApplicationAR() {
