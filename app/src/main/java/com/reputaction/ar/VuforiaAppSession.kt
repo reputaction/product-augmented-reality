@@ -83,6 +83,7 @@ class VuforiaAppSession constructor(val mSessionControl: VuforiaSessionControl) 
     }
 
     fun startAR(camera: Int) {
+        mCamera = camera
         try {
             mStartVuforiaTask = StartVuforiaTask()
             mStartVuforiaTask?.execute()
@@ -128,7 +129,7 @@ class VuforiaAppSession constructor(val mSessionControl: VuforiaSessionControl) 
     }
 
     override fun Vuforia_onUpdate(p0: State?) {
-        TODO("not implemented") //To change body of created functions use File | Settings | File Templates.
+        mSessionControl.onVuforiaUpdate(p0!!)
     }
 
     // Methods to be called to handle lifecycle
@@ -265,6 +266,14 @@ class VuforiaAppSession constructor(val mSessionControl: VuforiaSessionControl) 
             mSessionControl.onVuforiaStarted()
         }
 
+    }
+
+    fun onSurfaceCreated() {
+        Vuforia.onSurfaceCreated()
+    }
+
+    fun onSurfaceChanged(width: Int, height: Int) {
+        Vuforia.onSurfaceChanged(width, height)
     }
 
 }
